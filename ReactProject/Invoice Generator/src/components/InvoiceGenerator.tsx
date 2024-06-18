@@ -1,25 +1,62 @@
 import React, { useState } from 'react';
+import { auth, db } from '../firebase';
+import { useNavigate } from 'react-router-dom';
+import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const InvoiceGenerator: React.FC = () => {
+  const navigate = useNavigate();
+
+  if (!auth.currentUser) {
+    navigate('/login');
+  }
+
   const [recipient, setRecipient] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  const [numColumns, setNumColumns] = useState(3); 
-  const [numRows, setNumRows] = useState(15); 
+  const [numColumns, setNumColumns] = useState(3);
+  const [numRows, setNumRows] = useState(15);
 
-  const generatePDF = () => {
+  const handleSaveAndGeneratePDF = async () => {
+    const userId = auth.currentUser?.uid;
+    if (!userId) {
+      console.error('User not authenticated');
+      return;
+    }
+
+    try {
+      const invoiceRef = await addDoc(collection(db, 'invoices'), {
+        userId,
+        recipient,
+        startDate,
+        endDate,
+        numColumns,
+        numRows,
+        columns: Array.from({ length: numColumns }, (_, index) => `Column ${index + 1}`),
+        createdAt: Timestamp.now(),
+      });
+
+      console.log('Invoice saved with ID:', invoiceRef.id);
+
+      generatePDF(invoiceRef.id);
+    } catch (error) {
+      console.error('Error saving invoice:', error);
+    }
+  };
+
+  const generatePDF = (invoiceId: string) => {
     const doc = new jsPDF();
     const columns = Array.from({ length: numColumns }, (_, index) => `Column ${index + 1}`);
     const rows = Array.from({ length: numRows }, () => Array.from({ length: numColumns }, () => ' '));
 
     doc.text('Invoice', 14, 16);
-    doc.text(`Recipient: ${recipient}`, 14, 22);
-    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 28);
+    doc.text(`Invoice ID: ${invoiceId}`, 14, 22);
+    doc.text(`Recipient: ${recipient}`, 14, 28);
+    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 34);
 
     (doc as any).autoTable({
-      startY: 32,
+      startY: 38,
       head: [columns],
       body: rows,
     });
@@ -30,7 +67,7 @@ const InvoiceGenerator: React.FC = () => {
   return (
     <div>
       <h2>Invoice Generator</h2>
-      <form>
+      <form onSubmit={(e) => { e.preventDefault(); handleSaveAndGeneratePDF(); }}>
         <input
           type="text"
           value={recipient}
@@ -64,7 +101,7 @@ const InvoiceGenerator: React.FC = () => {
           placeholder="Number of Rows"
           required
         />
-        <button type="button" onClick={generatePDF}>Generate PDF</button>
+        <button type="submit">Save & Generate PDF</button>
       </form>
     </div>
   );
