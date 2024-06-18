@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { doc, setDoc } from 'firebase/firestore';
+import { useNavigate } from "react-router-dom";
 
 const SignupForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -11,12 +12,15 @@ const SignupForm: React.FC = () => {
   const [mobile, setMobile] = useState('');
   const [address, setAddress] = useState('');
 
+  const navigate = useNavigate();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      
 
       await setDoc(doc(db, 'users', user.uid), {
         email,
@@ -25,6 +29,8 @@ const SignupForm: React.FC = () => {
         mobile,
         address,
       });
+
+      navigate("/");
 
       console.log('User signed up and data saved to Firestore');
     } catch (error) {

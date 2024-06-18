@@ -1,108 +1,162 @@
-import React, { useState } from 'react';
-import { auth, db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, Timestamp } from 'firebase/firestore';
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import React, { useState, useEffect } from "react";
+import jsPDF from "jspdf";
+import "jspdf-autotable";
+import { auth, db } from '../firebase'; // Make sure these are correctly configured and exported
+import { doc, getDoc } from 'firebase/firestore';
+
+interface UserInfo {
+  name: string;
+  subtitle: string;
+  mobile: string;
+  address: string;
+}
 
 const InvoiceGenerator: React.FC = () => {
-  const navigate = useNavigate();
+  const [columns, setColumns] = useState<number>(3);
+  const [columnTitles, setColumnTitles] = useState<string[]>([]);
+  const [columnTypes, setColumnTypes] = useState<string[]>([]);
+  const [rows, setRows] = useState<number>(10);
+  const [rowData, setRowData] = useState<string[][]>([]);
+  const [recipientName, setRecipientName] = useState<string>("");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
 
-  if (!auth.currentUser) {
-    navigate('/login');
-  }
+  useEffect(() => {
+    const fetchUserInfo = async () => {
+      const user = auth.currentUser;
+      if (user) {
+        const userDoc = await getDoc(doc(db, "users", user.uid));
+        if (userDoc.exists()) {
+          setUserInfo(userDoc.data() as UserInfo);
+        }
+      }
+    };
 
-  const [recipient, setRecipient] = useState('');
-  const [startDate, setStartDate] = useState('');
-  const [endDate, setEndDate] = useState('');
-  const [numColumns, setNumColumns] = useState(3);
-  const [numRows, setNumRows] = useState(15);
+    fetchUserInfo();
+  }, []);
 
-  const handleSaveAndGeneratePDF = async () => {
-    const userId = auth.currentUser?.uid;
-    if (!userId) {
-      console.error('User not authenticated');
-      return;
-    }
-
-    try {
-      const invoiceRef = await addDoc(collection(db, 'invoices'), {
-        userId,
-        recipient,
-        startDate,
-        endDate,
-        numColumns,
-        numRows,
-        columns: Array.from({ length: numColumns }, (_, index) => `Column ${index + 1}`),
-        createdAt: Timestamp.now(),
-      });
-
-      console.log('Invoice saved with ID:', invoiceRef.id);
-
-      generatePDF(invoiceRef.id);
-    } catch (error) {
-      console.error('Error saving invoice:', error);
-    }
+  const handleColumnTitleChange = (index: number, title: string) => {
+    const newTitles = [...columnTitles];
+    newTitles[index] = title;
+    setColumnTitles(newTitles);
   };
 
-  const generatePDF = (invoiceId: string) => {
-    const doc = new jsPDF();
-    const columns = Array.from({ length: numColumns }, (_, index) => `Column ${index + 1}`);
-    const rows = Array.from({ length: numRows }, () => Array.from({ length: numColumns }, () => ' '));
+  const handleColumnTypeChange = (index: number, type: string) => {
+    const newTypes = [...columnTypes];
+    newTypes[index] = type;
+    setColumnTypes(newTypes);
+  };
 
-    doc.text('Invoice', 14, 16);
-    doc.text(`Invoice ID: ${invoiceId}`, 14, 22);
-    doc.text(`Recipient: ${recipient}`, 14, 28);
-    doc.text(`Date Range: ${startDate} to ${endDate}`, 14, 34);
+  const handleRowDataChange = (rowIndex: number, colIndex: number, data: string) => {
+    const newRowData = [...rowData];
+    newRowData[rowIndex][colIndex] = data;
+    setRowData(newRowData);
+  };
+
+  const generateRowData = () => {
+    const newData: string[][] = Array.from({ length: rows }, () => Array(columns).fill(""));
+    setRowData(newData);
+  };
+
+  const generatePDF = () => {
+    const doc = new jsPDF();
+    if (userInfo) {
+      doc.text(`Name: ${userInfo.name}`, 10, 10);
+      doc.text(`Subtitle/Degree: ${userInfo.subtitle}`, 10, 20);
+      doc.text(`Address: ${userInfo.address}`, 10, 30);
+      doc.text(`Mobile: ${userInfo.mobile}`, 10, 40);
+    }
+    doc.text(`Recipient: ${recipientName}`, 10, 50);
+    doc.text(`Invoice Period: ${startDate} to ${endDate}`, 10, 60);
+
+    const tableColumn = columnTitles;
+    const tableRows = rowData.map((row, _index) => 
+      row.map((cell, colIndex) => 
+        columnTypes[colIndex] === "date" 
+          ? new Date(startDate).toISOString().split('T')[0] 
+          : cell)
+    );
 
     (doc as any).autoTable({
-      startY: 38,
-      head: [columns],
-      body: rows,
+      head: [tableColumn],
+      body: tableRows,
     });
 
-    doc.save('invoice.pdf');
+    doc.save("invoice.pdf");
   };
 
   return (
     <div>
-      <h2>Invoice Generator</h2>
-      <form onSubmit={(e) => { e.preventDefault(); handleSaveAndGeneratePDF(); }}>
+      <h2>Generate Invoice</h2>
+      <div>
+        <label>Recipient Name:</label>
         <input
           type="text"
-          value={recipient}
-          onChange={(e) => setRecipient(e.target.value)}
-          placeholder="Recipient Name"
-          required
+          value={recipientName}
+          onChange={(e) => setRecipientName(e.target.value)}
         />
+      </div>
+      <div>
+        <label>Start Date:</label>
         <input
           type="date"
           value={startDate}
           onChange={(e) => setStartDate(e.target.value)}
-          required
         />
+      </div>
+      <div>
+        <label>End Date:</label>
         <input
           type="date"
           value={endDate}
           onChange={(e) => setEndDate(e.target.value)}
-          required
         />
+      </div>
+      <div>
+        <label>Number of Columns:</label>
         <input
           type="number"
-          value={numColumns}
-          onChange={(e) => setNumColumns(Number(e.target.value))}
-          placeholder="Number of Columns"
-          required
+          value={columns}
+          onChange={(e) => setColumns(Number(e.target.value))}
         />
+        <button onClick={generateRowData}>Set Columns</button>
+      </div>
+      {Array.from({ length: columns }).map((_, index) => (
+        <div key={index}>
+          <input
+            type="text"
+            placeholder={`Column ${index + 1} Title`}
+            onChange={(e) => handleColumnTitleChange(index, e.target.value)}
+          />
+          <select onChange={(e) => handleColumnTypeChange(index, e.target.value)}>
+            <option value="value">Value</option>
+            <option value="date">Date</option>
+          </select>
+        </div>
+      ))}
+      <div>
+        <label>Number of Rows:</label>
         <input
           type="number"
-          value={numRows}
-          onChange={(e) => setNumRows(Number(e.target.value))}
-          placeholder="Number of Rows"
-          required
+          value={rows}
+          onChange={(e) => setRows(Number(e.target.value))}
         />
-        <button type="submit">Save & Generate PDF</button>
-      </form>
+        <button onClick={generateRowData}>Set Rows</button>
+      </div>
+      {rowData.map((row, rowIndex) => (
+        <div key={rowIndex}>
+          {row.map((_, colIndex) => (
+            <input
+              key={colIndex}
+              type="text"
+              placeholder={`Row ${rowIndex + 1} Col ${colIndex + 1}`}
+              onChange={(e) => handleRowDataChange(rowIndex, colIndex, e.target.value)}
+            />
+          ))}
+        </div>
+      ))}
+      <button onClick={generatePDF}>Generate PDF</button>
     </div>
   );
 };

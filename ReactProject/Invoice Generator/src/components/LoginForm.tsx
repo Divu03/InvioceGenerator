@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { auth, db } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
+import { useNavigate } from "react-router-dom";
 
 const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
@@ -17,10 +18,12 @@ const LoginForm: React.FC = () => {
 
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
+      const navigate = useNavigate();
 
       if (docSnap.exists()) {
         setUserData(docSnap.data());
         console.log('User data:', docSnap.data());
+        navigate("/");
       } else {
         console.log('No such document!');
       }
