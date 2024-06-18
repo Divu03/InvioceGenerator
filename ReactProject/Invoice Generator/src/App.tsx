@@ -1,26 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from './firebase';
-import Login from './components/Login';
-import InvoiceForm from './components/InvoiceForm';
+import Header from './components/Header';
+import SignupForm from './components/SignupForm';
+import LoginForm from './components/LoginForm';
+import HomePage from './components/HomePage';
+import InvoiceGenerator from './components/InvoiceGenerator';
+import PrivateRoute from './components/PrivateRoute';
+import './App.css';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
-    });
-
-    return () => unsubscribe();
-  }, []);
-
   return (
     <Router>
+      <Header />
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/" element={user ? <InvoiceForm /> : <Login />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/signup" element={<SignupForm />} />
+        <Route path="/login" element={<LoginForm />} />
+        <Route path="/invoice" element={<PrivateRoute><InvoiceGenerator /></PrivateRoute>} />
       </Routes>
     </Router>
   );
