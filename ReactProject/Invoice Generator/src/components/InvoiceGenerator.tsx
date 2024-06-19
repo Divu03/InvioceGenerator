@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from "react";
-import jsPDF from "jspdf";
+import React, { useState, useRef, useEffect } from "react";
 import "jspdf-autotable";
-import { auth, db } from '../firebase'; // Make sure these are correctly configured and exported
+import { auth, db } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import Invoice from "./Invoice";
+import { useReactToPrint } from "react-to-print";
 
 interface UserInfo {
   name: string;
@@ -21,6 +22,8 @@ const InvoiceGenerator: React.FC = () => {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
+
+  const invoiceRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const fetchUserInfo = async () => {
@@ -59,32 +62,13 @@ const InvoiceGenerator: React.FC = () => {
     setRowData(newData);
   };
 
-  const generatePDF = () => {
-    const doc = new jsPDF();
-    if (userInfo) {
-      doc.text(`Name: ${userInfo.name}`, 10, 10);
-      doc.text(`Subtitle/Degree: ${userInfo.subtitle}`, 10, 20);
-      doc.text(`Address: ${userInfo.address}`, 10, 30);
-      doc.text(`Mobile: ${userInfo.mobile}`, 10, 40);
-    }
-    doc.text(`Recipient: ${recipientName}`, 10, 50);
-    doc.text(`Invoice Period: ${startDate} to ${endDate}`, 10, 60);
+  const handlePrint = useReactToPrint({
+    content: () => invoiceRef.current,
+  });
 
-    const tableColumn = columnTitles;
-    const tableRows = rowData.map((row, _index) => 
-      row.map((cell, colIndex) => 
-        columnTypes[colIndex] === "date" 
-          ? new Date(startDate).toISOString().split('T')[0] 
-          : cell)
-    );
-
-    (doc as any).autoTable({
-      head: [tableColumn],
-      body: tableRows,
-    });
-
-    doc.save("invoice.pdf");
-  };
+  if (!userInfo) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div>
@@ -156,7 +140,19 @@ const InvoiceGenerator: React.FC = () => {
           ))}
         </div>
       ))}
-      <button onClick={generatePDF}>Generate PDF</button>
+      <button onClick={handlePrint}>Print Invoice</button>
+
+      <div style={{ display: 'none' }}>
+        <Invoice
+          ref={invoiceRef}
+          recipientName={recipientName}
+          startDate={startDate}
+          endDate={endDate}
+          columnTitles={columnTitles}
+          rowData={rowData}
+          userInfo={userInfo}
+        />
+      </div>
     </div>
   );
 };
