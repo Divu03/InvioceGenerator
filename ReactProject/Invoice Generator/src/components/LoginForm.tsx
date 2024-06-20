@@ -8,6 +8,7 @@ const LoginForm: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [userData, setUserData] = useState<any>(null);
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +19,7 @@ const LoginForm: React.FC = () => {
 
       const docRef = doc(db, 'users', user.uid);
       const docSnap = await getDoc(docRef);
-      const navigate = useNavigate();
+
 
       if (docSnap.exists()) {
         setUserData(docSnap.data());

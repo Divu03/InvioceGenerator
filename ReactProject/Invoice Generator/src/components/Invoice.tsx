@@ -1,63 +1,65 @@
-import { forwardRef } from 'react';
+import React from 'react';
 
 interface InvoiceProps {
-  recipientName: string;
-  startDate: string;
-  endDate: string;
-  columnTitles: string[];
-  rowData: string[][];
   userInfo: {
     name: string;
     subtitle: string;
-    mobile: string;
     address: string;
+    mobile: string;
+    email: string;
   };
+  recipient: string;
+  columns: string[];
+  rows: { date: string; values: string[] }[];
 }
 
-const Invoice = forwardRef<HTMLDivElement, InvoiceProps>((props, ref) => {
-  const { recipientName, startDate, endDate, columnTitles, rowData, userInfo } = props;
+const Invoice: React.FC<InvoiceProps> = ({ userInfo, recipient, columns, rows }) => {
+  const total = rows.reduce((sum, row) => sum + row.values.reduce((subSum, value) => subSum + parseFloat(value), 0), 0);
 
   return (
-    <div ref={ref} className="invoice">
-      <h1>Invoice</h1>
-      <div>
-        <strong>Name:</strong> {userInfo.name}
+    <div style={{ padding: '20px', width: '210mm', minHeight: '297mm', margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      <h2>Invoice</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <div>
+          <p><strong>From:</strong></p>
+          <p>{userInfo.name}</p>
+          <p>{userInfo.subtitle}</p>
+          <p>{userInfo.address}</p>
+        </div>
+        <div>
+          <p><strong>To:</strong></p>
+          <p>{recipient}</p>
+        </div>
       </div>
-      <div>
-        <strong>Subtitle/Degree:</strong> {userInfo.subtitle}
-      </div>
-      <div>
-        <strong>Address:</strong> {userInfo.address}
-      </div>
-      <div>
-        <strong>Mobile:</strong> {userInfo.mobile}
-      </div>
-      <div>
-        <strong>Recipient:</strong> {recipientName}
-      </div>
-      <div>
-        <strong>Invoice Period:</strong> {startDate} to {endDate}
-      </div>
-      <table>
+      <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '20px' }}>
         <thead>
           <tr>
-            {columnTitles.map((title, index) => (
-              <th key={index}>{title}</th>
+            {columns.map((col, index) => (
+              <th key={index} style={{ border: '1px solid #ddd', padding: '8px' }}>{col}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {rowData.map((row, rowIndex) => (
+          {rows.map((row, rowIndex) => (
             <tr key={rowIndex}>
-              {row.map((cell, colIndex) => (
-                <td key={colIndex}>{cell}</td>
+              <td style={{ border: '1px solid #ddd', padding: '8px' }}>{row.date}</td>
+              {row.values.map((value, colIndex) => (
+                <td key={colIndex} style={{ border: '1px solid #ddd', padding: '8px' }}>{value}</td>
               ))}
             </tr>
           ))}
         </tbody>
       </table>
+      <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+        <p><strong>Total: ${total.toFixed(2)}</strong></p>
+      </div>
+      <div>
+        <p><strong>Address:</strong> {userInfo.address}</p>
+        <p><strong>Email:</strong> {userInfo.email}</p>
+        <p><strong>Mobile:</strong> {userInfo.mobile}</p>
+      </div>
     </div>
   );
-});
+};
 
 export default Invoice;

@@ -1,43 +1,21 @@
-import React, { useState, useRef, useEffect } from "react";
-import "jspdf-autotable";
-import { auth, db } from '../firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import Invoice from "./Invoice";
-import { useReactToPrint } from "react-to-print";
-
-interface UserInfo {
-  name: string;
-  subtitle: string;
-  mobile: string;
-  address: string;
-}
+import React, { useState, useRef } from 'react';
+import { useReactToPrint } from 'react-to-print';
+import Invoice from './Invoice';
 
 const InvoiceGenerator: React.FC = () => {
   const [columns, setColumns] = useState<number>(3);
   const [columnTitles, setColumnTitles] = useState<string[]>([]);
   const [columnTypes, setColumnTypes] = useState<string[]>([]);
   const [rows, setRows] = useState<number>(10);
-  const [rowData, setRowData] = useState<string[][]>([]);
-  const [recipientName, setRecipientName] = useState<string>("");
-  const [startDate, setStartDate] = useState<string>("");
-  const [endDate, setEndDate] = useState<string>("");
-  const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
-
-  const invoiceRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const fetchUserInfo = async () => {
-      const user = auth.currentUser;
-      if (user) {
-        const userDoc = await getDoc(doc(db, "users", user.uid));
-        if (userDoc.exists()) {
-          setUserInfo(userDoc.data() as UserInfo);
-        }
-      }
-    };
-
-    fetchUserInfo();
-  }, []);
+  const [rowData, setRowData] = useState<{ date: string; values: string[] }[]>([]);
+  const [recipient, setRecipient] = useState<string>('');
+  const [userInfo, setUserInfo] = useState({
+    name: 'John Doe',
+    subtitle: '1234 Main St.',
+    address: 'Springfield, IL 62701',
+    mobile: '(555) 555-5555',
+    email: 'john.doe@example.com'
+  });
 
   const handleColumnTitleChange = (index: number, title: string) => {
     const newTitles = [...columnTitles];
@@ -53,50 +31,28 @@ const InvoiceGenerator: React.FC = () => {
 
   const handleRowDataChange = (rowIndex: number, colIndex: number, data: string) => {
     const newRowData = [...rowData];
-    newRowData[rowIndex][colIndex] = data;
+    newRowData[rowIndex].values[colIndex] = data;
     setRowData(newRowData);
   };
 
   const generateRowData = () => {
-    const newData: string[][] = Array.from({ length: rows }, () => Array(columns).fill(""));
+    const newData = Array.from({ length: rows }, (_, rowIndex) => ({
+      date: `2024-01-${rowIndex + 1}`,
+      values: Array(columns).fill('')
+    }));
     setRowData(newData);
   };
 
+  const invoiceRef = useRef<HTMLDivElement>(null);
   const handlePrint = useReactToPrint({
     content: () => invoiceRef.current,
+    documentTitle: 'Invoice',
+    pageStyle: '@page { size: A4; }'
   });
-
-  if (!userInfo) {
-    return <div>Loading...</div>;
-  }
 
   return (
     <div>
       <h2>Generate Invoice</h2>
-      <div>
-        <label>Recipient Name:</label>
-        <input
-          type="text"
-          value={recipientName}
-          onChange={(e) => setRecipientName(e.target.value)}
-        />
-      </div>
-      <div>
-        <label>Start Date:</label>
-        <input
-          type="date"
-          value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-        />
-      </div>
-      <div>
-        <label>End Date:</label>
-        <input
-          type="date"
-          value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-        />
-      </div>
       <div>
         <label>Number of Columns:</label>
         <input
@@ -128,9 +84,17 @@ const InvoiceGenerator: React.FC = () => {
         />
         <button onClick={generateRowData}>Set Rows</button>
       </div>
+      <div>
+        <label>Recipient Name:</label>
+        <input
+          type="text"
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+        />
+      </div>
       {rowData.map((row, rowIndex) => (
         <div key={rowIndex}>
-          {row.map((_, colIndex) => (
+          {row.values.map((_, colIndex) => (
             <input
               key={colIndex}
               type="text"
@@ -141,16 +105,13 @@ const InvoiceGenerator: React.FC = () => {
         </div>
       ))}
       <button onClick={handlePrint}>Print Invoice</button>
-
       <div style={{ display: 'none' }}>
         <Invoice
           ref={invoiceRef}
-          recipientName={recipientName}
-          startDate={startDate}
-          endDate={endDate}
-          columnTitles={columnTitles}
-          rowData={rowData}
           userInfo={userInfo}
+          recipient={recipient}
+          columns={columnTitles}
+          rows={rowData}
         />
       </div>
     </div>
